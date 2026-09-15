@@ -1,14 +1,1 @@
-[class^="col-"], [class*=" col-"] {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  padding: 20px 0;
-}
-#header [class^="col-"] {
-  background-color: #e3f2fd;
-#center [class^="col-"] {
-  background-color: #fff3cd; 
-  min-height: 200px;         
-}
-#footer [class^="col-"] {
-  background-color: #d1e7dd; 
-}
+
