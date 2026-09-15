@@ -1,9 +1,15 @@
-#CatChanger {
-  padding: 10px 20px;
-  font-size: 16px;
-  cursor: pointer;
+[class^="col-"], [class*=" col-"] {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  padding: 20px 0;
 }
-#cat {
-  width: 100px;
-  border-radius: 20px;
+#header [class^="col-"] {
+  background-color: #e3f2fd;
+
+#center [class^="col-"] {
+  background-color: #fff3cd; 
+  min-height: 200px;         
+}
+#footer [class^="col-"] {
+  background-color: #d1e7dd; 
 }
