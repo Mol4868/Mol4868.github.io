@@ -31,54 +31,51 @@
   </tbody>
 </table>
 <script type="module">
-      // Copy firebaseConfig from Firebase Console > Project settings > Your apps.
-      // Enable Google/GitHub in Authentication and authorize mol4868.github.io.
-      // The GitHub Client Secret belongs ONLY in Firebase Console, never here.
-      const firebaseConfig = {
-        apiKey: "",
-        authDomain: "",
-        projectId: "",
-        appId: ""
+      // Supabase Dashboard > Connect: Project URL and publishable (or anon) key.
+      // Never put a service_role key, sb_secret key, or OAuth secret here.
+      const supabaseConfig = {
+        url: "",
+        publishableKey: ""
       };
-
+      const redirectTo = "https://mol4868.github.io/";
       const googleButton = document.getElementById("google-login");
       const githubButton = document.getElementById("github-login");
       const logoutButton = document.getElementById("auth-logout");
       const status = document.getElementById("auth-status");
       const loginButtons = [googleButton, githubButton];
-      let auth;
-      let providers;
-      let signInWithPopup;
-      let signOut;
+      let client;
 
       function setBusy(busy) {
         for (const button of [...loginButtons, logoutButton]) button.disabled = busy;
       }
 
-      function showError(error) {
-        const messages = {
-          "auth/popup-closed-by-user": "Вход отменён.",
-          "auth/cancelled-popup-request": "Вход отменён.",
-          "auth/popup-blocked": "Разрешите всплывающие окна для входа.",
-          "auth/unauthorized-domain": "Вход на этом домене пока недоступен.",
-          "auth/operation-not-allowed": "Этот способ входа пока недоступен.",
-          "auth/account-exists-with-different-credential": "Этот email уже используется. Войдите тем способом, который выбрали при регистрации.",
-          "auth/network-request-failed": "Не удалось подключиться. Проверьте интернет."
-        };
-        status.textContent = messages[error.code] || "Не удалось выполнить вход. Попробуйте ещё раз.";
+      function renderSession(session) {
+        const user = session?.user;
+        for (const button of loginButtons) button.hidden = Boolean(user);
+        logoutButton.hidden = !user;
+        status.textContent = user
+          ? `Вы вошли как ${user.user_metadata?.full_name || user.user_metadata?.user_name || user.email || "пользователь"}.`
+          : "";
       }
 
-      async function login(providerName) {
-        if (!auth || !providers) {
+      async function login(provider) {
+        if (!client) {
           status.textContent = "Авторизация пока не настроена.";
           return;
         }
         setBusy(true);
-        status.textContent = "Выполняется вход…";
+        status.textContent = "Переходим на страницу входа…";
         try {
-          await signInWithPopup(auth, providers[providerName]);
-        } catch (error) {
-          showError(error);
+          const { error } = await client.auth.signInWithOAuth({
+            provider,
+            options: {
+              redirectTo,
+              ...(provider === "google" ? { queryParams: { prompt: "select_account" } } : {})
+            }
+          });
+          if (error) throw error;
+        } catch {
+          status.textContent = "Не удалось начать вход. Попробуйте ещё раз.";
         } finally {
           setBusy(false);
         }
@@ -87,10 +84,12 @@
       googleButton.addEventListener("click", () => login("google"));
       githubButton.addEventListener("click", () => login("github"));
       logoutButton.addEventListener("click", async () => {
-        if (!auth) return;
+        if (!client) return;
         setBusy(true);
         try {
-          await signOut(auth);
+          const { error } = await client.auth.signOut({ scope: "local" });
+          if (error) throw error;
+          renderSession(null);
           status.textContent = "Вы вышли из аккаунта.";
         } catch {
           status.textContent = "Не удалось выйти. Попробуйте ещё раз.";
@@ -99,32 +98,30 @@
         }
       });
 
-      if (["apiKey", "authDomain", "projectId", "appId"].every(key => firebaseConfig[key]?.trim())) {
+      if (supabaseConfig.url.trim() && supabaseConfig.publishableKey.trim()) {
+        setBusy(true);
         try {
-          setBusy(true);
-          const [{ initializeApp }, authSdk] = await Promise.all([
-            import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
-            import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js")
-          ]);
-          auth = authSdk.getAuth(initializeApp(firebaseConfig));
-          auth.languageCode = "ru";
-          providers = {
-            google: new authSdk.GoogleAuthProvider(),
-            github: new authSdk.GithubAuthProvider()
-          };
-          providers.google.setCustomParameters({ prompt: "select_account" });
-          signInWithPopup = authSdk.signInWithPopup;
-          signOut = authSdk.signOut;
-          authSdk.onAuthStateChanged(auth, user => {
-            for (const button of loginButtons) button.hidden = Boolean(user);
-            logoutButton.hidden = !user;
-            status.textContent = user
-              ? `Вы вошли как ${user.displayName || user.email || "пользователь"}.`
-              : "";
-          }, showError);
+          const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+          client = createClient(supabaseConfig.url, supabaseConfig.publishableKey, {
+            auth: {
+              flowType: "pkce",
+              detectSessionInUrl: true,
+              persistSession: true,
+              autoRefreshToken: true
+            }
+          });
+          client.auth.onAuthStateChange((_event, session) => renderSession(session));
+          const { data, error } = await client.auth.getSession();
+          if (error) throw error;
+          renderSession(data.session);
+          const hash = new URLSearchParams(window.location.hash.slice(1));
+          const query = new URLSearchParams(window.location.search);
+          if (hash.has("error") || query.has("error")) {
+            status.textContent = "Вход отменён или недоступен. Попробуйте ещё раз.";
+            window.history.replaceState(null, "", window.location.pathname);
+          }
         } catch {
-          auth = null;
-          providers = null;
+          client = null;
           status.textContent = "Не удалось загрузить авторизацию. Обновите страницу.";
         } finally {
           setBusy(false);
