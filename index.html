@@ -1,5 +1,11 @@
-</body>
-</html>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Главная</title>
+</head>
+<body>
 <table border="1" style="border-spacing: 1px">
   <tbody>
     <tr>
@@ -7,12 +13,105 @@
         <ul>
             <li><a href="index.html">Главная</a></li>
             <li><a href="index2.html">Кот и таблица</a></li>
-            <li><a href="bootstrap.html">бутстрап</a>
-            <li><a href="flex.html">флекс</a>
+            <li><a href="bootstrap.html">бутстрап</a></li>
+            <li><a href="flex.html">флекс</a></li>
             <li><a href="flutter.html">флатер</a></li>
           </ul>
       </td>
-      <td  align="center"style="width: 1200px; height: 1080px">ГЛАВНАЯ</td>
+      <td  align="center"style="width: 1200px; height: 1080px">
+        ГЛАВНАЯ
+        <div>
+          <button type="button" id="google-login">Войти через Google</button>
+          <button type="button" id="google-logout" hidden>Выйти</button>
+          <p id="auth-status" role="status" aria-live="polite"></p>
+        </div>
+      </td>
     </tr>
   </tbody>
 </table>
+<script type="module">
+      // Paste the web app's firebaseConfig from Firebase Console here.
+      // Enable Authentication > Google and authorize mol4868.github.io.
+      const firebaseConfig = {
+        apiKey: "",
+        authDomain: "",
+        projectId: "",
+        appId: ""
+      };
+
+      const loginButton = document.getElementById("google-login");
+      const logoutButton = document.getElementById("google-logout");
+      const status = document.getElementById("auth-status");
+      let auth;
+      let provider;
+      let signInWithPopup;
+      let signOut;
+
+      function showError(error) {
+        const messages = {
+          "auth/popup-closed-by-user": "Вход отменён.",
+          "auth/cancelled-popup-request": "Вход отменён.",
+          "auth/popup-blocked": "Разрешите всплывающие окна для входа через Google.",
+          "auth/unauthorized-domain": "Вход на этом домене пока недоступен.",
+          "auth/operation-not-allowed": "Вход через Google пока недоступен.",
+          "auth/network-request-failed": "Не удалось подключиться. Проверьте интернет."
+        };
+        status.textContent = messages[error.code] || "Не удалось выполнить вход. Попробуйте ещё раз.";
+      }
+
+      loginButton.addEventListener("click", async () => {
+        if (!auth) {
+          status.textContent = "Вход через Google пока не настроен.";
+          return;
+        }
+        loginButton.disabled = true;
+        status.textContent = "Выполняется вход…";
+        try {
+          await signInWithPopup(auth, provider);
+        } catch (error) {
+          showError(error);
+        } finally {
+          loginButton.disabled = false;
+        }
+      });
+
+      logoutButton.addEventListener("click", async () => {
+        logoutButton.disabled = true;
+        try {
+          await signOut(auth);
+        } catch {
+          status.textContent = "Не удалось выйти. Попробуйте ещё раз.";
+        } finally {
+          logoutButton.disabled = false;
+        }
+      });
+
+      if (Object.values(firebaseConfig).every(value => value.trim())) {
+        try {
+          loginButton.disabled = true;
+          const [{ initializeApp }, authSdk] = await Promise.all([
+            import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
+            import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js")
+          ]);
+          auth = authSdk.getAuth(initializeApp(firebaseConfig));
+          auth.languageCode = "ru";
+          provider = new authSdk.GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: "select_account" });
+          signInWithPopup = authSdk.signInWithPopup;
+          signOut = authSdk.signOut;
+          authSdk.onAuthStateChanged(auth, user => {
+            loginButton.hidden = Boolean(user);
+            logoutButton.hidden = !user;
+            status.textContent = user
+              ? `Вы вошли как ${user.displayName || user.email || "пользователь"}.`
+              : "";
+          }, showError);
+        } catch {
+          status.textContent = "Не удалось загрузить авторизацию. Обновите страницу.";
+        } finally {
+          loginButton.disabled = false;
+        }
+      }
+</script>
+</body>
+</html>
