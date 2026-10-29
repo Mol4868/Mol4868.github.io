@@ -22,7 +22,8 @@
         ГЛАВНАЯ
         <div>
           <button type="button" id="google-login">Войти через Google</button>
-          <button type="button" id="google-logout" hidden>Выйти</button>
+          <button type="button" id="github-login">Войти через GitHub</button>
+          <button type="button" id="auth-logout" hidden>Выйти</button>
           <p id="auth-status" role="status" aria-live="polite"></p>
         </div>
       </td>
@@ -30,8 +31,9 @@
   </tbody>
 </table>
 <script type="module">
-      // Paste the web app's firebaseConfig from Firebase Console here.
-      // Enable Authentication > Google and authorize mol4868.github.io.
+      // Copy firebaseConfig from Firebase Console > Project settings > Your apps.
+      // Enable Google/GitHub in Authentication and authorize mol4868.github.io.
+      // The GitHub Client Secret belongs ONLY in Firebase Console, never here.
       const firebaseConfig = {
         apiKey: "",
         authDomain: "",
@@ -39,77 +41,93 @@
         appId: ""
       };
 
-      const loginButton = document.getElementById("google-login");
-      const logoutButton = document.getElementById("google-logout");
+      const googleButton = document.getElementById("google-login");
+      const githubButton = document.getElementById("github-login");
+      const logoutButton = document.getElementById("auth-logout");
       const status = document.getElementById("auth-status");
+      const loginButtons = [googleButton, githubButton];
       let auth;
-      let provider;
+      let providers;
       let signInWithPopup;
       let signOut;
+
+      function setBusy(busy) {
+        for (const button of [...loginButtons, logoutButton]) button.disabled = busy;
+      }
 
       function showError(error) {
         const messages = {
           "auth/popup-closed-by-user": "Вход отменён.",
           "auth/cancelled-popup-request": "Вход отменён.",
-          "auth/popup-blocked": "Разрешите всплывающие окна для входа через Google.",
+          "auth/popup-blocked": "Разрешите всплывающие окна для входа.",
           "auth/unauthorized-domain": "Вход на этом домене пока недоступен.",
-          "auth/operation-not-allowed": "Вход через Google пока недоступен.",
+          "auth/operation-not-allowed": "Этот способ входа пока недоступен.",
+          "auth/account-exists-with-different-credential": "Этот email уже используется. Войдите тем способом, который выбрали при регистрации.",
           "auth/network-request-failed": "Не удалось подключиться. Проверьте интернет."
         };
         status.textContent = messages[error.code] || "Не удалось выполнить вход. Попробуйте ещё раз.";
       }
 
-      loginButton.addEventListener("click", async () => {
-        if (!auth) {
-          status.textContent = "Вход через Google пока не настроен.";
+      async function login(providerName) {
+        if (!auth || !providers) {
+          status.textContent = "Авторизация пока не настроена.";
           return;
         }
-        loginButton.disabled = true;
+        setBusy(true);
         status.textContent = "Выполняется вход…";
         try {
-          await signInWithPopup(auth, provider);
+          await signInWithPopup(auth, providers[providerName]);
         } catch (error) {
           showError(error);
         } finally {
-          loginButton.disabled = false;
+          setBusy(false);
         }
-      });
+      }
 
+      googleButton.addEventListener("click", () => login("google"));
+      githubButton.addEventListener("click", () => login("github"));
       logoutButton.addEventListener("click", async () => {
-        logoutButton.disabled = true;
+        if (!auth) return;
+        setBusy(true);
         try {
           await signOut(auth);
+          status.textContent = "Вы вышли из аккаунта.";
         } catch {
           status.textContent = "Не удалось выйти. Попробуйте ещё раз.";
         } finally {
-          logoutButton.disabled = false;
+          setBusy(false);
         }
       });
 
-      if (Object.values(firebaseConfig).every(value => value.trim())) {
+      if (["apiKey", "authDomain", "projectId", "appId"].every(key => firebaseConfig[key]?.trim())) {
         try {
-          loginButton.disabled = true;
+          setBusy(true);
           const [{ initializeApp }, authSdk] = await Promise.all([
             import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
             import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js")
           ]);
           auth = authSdk.getAuth(initializeApp(firebaseConfig));
           auth.languageCode = "ru";
-          provider = new authSdk.GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: "select_account" });
+          providers = {
+            google: new authSdk.GoogleAuthProvider(),
+            github: new authSdk.GithubAuthProvider()
+          };
+          providers.google.setCustomParameters({ prompt: "select_account" });
           signInWithPopup = authSdk.signInWithPopup;
           signOut = authSdk.signOut;
           authSdk.onAuthStateChanged(auth, user => {
-            loginButton.hidden = Boolean(user);
+            for (const button of loginButtons) button.hidden = Boolean(user);
             logoutButton.hidden = !user;
             status.textContent = user
               ? `Вы вошли как ${user.displayName || user.email || "пользователь"}.`
               : "";
           }, showError);
         } catch {
+          auth = null;
+          providers = null;
           status.textContent = "Не удалось загрузить авторизацию. Обновите страницу.";
         } finally {
-          loginButton.disabled = false;
+          setBusy(false);
         }
       }
 </script>
