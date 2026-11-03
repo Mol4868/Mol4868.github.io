@@ -54,17 +54,17 @@
         for (const button of loginButtons) button.hidden = Boolean(user);
         logoutButton.hidden = !user;
         status.textContent = user
-          ? `Вы вошли как ${user.user_metadata?.full_name || user.user_metadata?.user_name || user.email || "пользователь"}.`
+          ? `вы вошли, теперь вы ${user.user_metadata?.full_name || user.user_metadata?.user_name || user.email || "пользователь"}.`
           : "";
       }
 
       async function login(provider) {
         if (!client) {
-          status.textContent = "Авторизация пока не настроена.";
+          status.textContent = "авторизация не настроена для этого всего того :(";
           return;
         }
         setBusy(true);
-        status.textContent = "Переходим на страницу входа…";
+        status.textContent = "вот вот перенесет на другую страницу";
         try {
           const { error } = await client.auth.signInWithOAuth({
             provider,
@@ -75,7 +75,7 @@
           });
           if (error) throw error;
         } catch {
-          status.textContent = "Не удалось начать вход. Попробуйте ещё раз.";
+          status.textContent = "попытка войти не удалась D:";
         } finally {
           setBusy(false);
         }
@@ -90,9 +90,9 @@
           const { error } = await client.auth.signOut({ scope: "local" });
           if (error) throw error;
           renderSession(null);
-          status.textContent = "Вы вышли из аккаунта.";
+          status.textContent = "вы вышли из аккаунта :p";
         } catch {
-          status.textContent = "Не удалось выйти. Попробуйте ещё раз.";
+          status.textContent = "вы не смогли выйти :(";
         } finally {
           setBusy(false);
         }
@@ -117,12 +117,12 @@
           const hash = new URLSearchParams(window.location.hash.slice(1));
           const query = new URLSearchParams(window.location.search);
           if (hash.has("error") || query.has("error")) {
-            status.textContent = "Вход отменён или недоступен. Попробуйте ещё раз.";
+            status.textContent = "вы не смогли войти!";
             window.history.replaceState(null, "", window.location.pathname);
           }
         } catch {
           client = null;
-          status.textContent = "Не удалось загрузить авторизацию. Обновите страницу.";
+          status.textContent = "авторизация не удалась :(";
         } finally {
           setBusy(false);
         }
